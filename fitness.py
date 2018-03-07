@@ -1,7 +1,7 @@
 import telegram
 import os
 import json
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import time
 
 
@@ -13,17 +13,23 @@ class Fitness(object):
         token = os.environ["BOT_TOKEN"]
         self.bot = telegram.Bot(token)
         self.channel = "@daily_fitness_challenge"
-        self.month_to_exercise = {1: "Push Ups", 2: "Squats", 3: "Pull ups"}
+        self.month_to_exercise = {1: ("Push Ups", 1), 2: ("Squats", 1), 3: ("Planks", 5)}
+        self.exercise_to_scale = {"Push Ups": "repetitions", "Squats": "repetitions", "Planks": "seconds"}
 
-    def __calculate_new_fitness_exercise(self, yesterday_exercise, month):
-        yesterday_exercise[self.month_to_exercise[month]] += 1
-        return yesterday_exercise
+    def __calculate_new_fitness_exercise(self, last_exercise, month):
+        exercise, incr_by = self.month_to_exercise[month]
+        if exercise in last_exercise:
+            last_exercise[exercise] += incr_by
+        else:
+            last_exercise[exercise] = incr_by
 
-    @staticmethod
-    def __prepare_pretty_message(exercises):
+        return last_exercise
+
+    def __prepare_pretty_message(self, exercises):
         pretty_message = "Let's Go!\nToday's Challenge:\n"
         for exercise, rep in exercises.items():
-            pretty_message += "%s %s\n" % (rep, exercise)
+            scale = self.exercise_to_scale[exercise]
+            pretty_message += "%s - %s %s\n" % (exercise, rep, scale)
         return pretty_message
 
     @staticmethod
@@ -34,23 +40,24 @@ class Fitness(object):
         return data
 
     @staticmethod
-    def __update_new_exercise(new_exercise):
+    def __update_new_exercise(new_exercise, new_date):
         with open(SAVED_EXERCISE_PATH, "w") as f:
-            json.dump({"last_update": str(date.today()), "exercise": new_exercise}, f)
+            json.dump({"last_update": str(new_date), "exercise": new_exercise}, f)
 
     def broadcast_daily_exercise(self):
         while True:
             data = self.__read_last_update()
 
-            exercise_date = data["last_update"]
-            yesterday_exercise = data["exercise"]
+            last_exercise_date = data["last_update"]
+            last_exercise = data["exercise"]
 
-            if exercise_date == date.today():
-                print("Message was already sent today: %s" % self.__prepare_pretty_message(yesterday_exercise))
+            if last_exercise_date == date.today():
+                print("Message was already sent today: %s" % self.__prepare_pretty_message(last_exercise))
             else:
-                new_exercise = self.__calculate_new_fitness_exercise(yesterday_exercise, exercise_date.month)
+                new_exercise_date = last_exercise_date + timedelta(days=1)
+                new_exercise = self.__calculate_new_fitness_exercise(last_exercise, new_exercise_date.month)
                 self.bot.send_message(self.channel, self.__prepare_pretty_message(new_exercise))
-                self.__update_new_exercise(new_exercise)
+                self.__update_new_exercise(new_exercise, new_exercise_date)
             time.sleep(60)
 
 

@@ -1,9 +1,13 @@
-import telegram
-import os
 import json
-from datetime import datetime, date, timedelta
+import os
 import time
+from datetime import datetime, date, timedelta
 
+import telegram
+
+from utils import get_logger
+
+logger = get_logger(__name__)
 
 SAVED_EXERCISE_PATH = "./last_update.json"
 
@@ -52,7 +56,7 @@ class Fitness(object):
             last_exercise = data["exercise"]
 
             if last_exercise_date == date.today():
-                print("Message was already sent today: %s" % self.__prepare_pretty_message(last_exercise))
+                logger.info("Message was already sent today: %s" % self.__prepare_pretty_message(last_exercise))
             else:
                 new_exercise_date = last_exercise_date + timedelta(days=1)
                 new_exercise = self.__calculate_new_fitness_exercise(last_exercise, new_exercise_date.month)
